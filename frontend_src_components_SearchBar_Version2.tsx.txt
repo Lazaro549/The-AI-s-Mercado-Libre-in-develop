@@ -1,0 +1,37 @@
+import React, { useState } from 'react';
+
+type Props = {
+  onSearch: (q: string) => void;
+};
+
+const SearchBar: React.FC<Props> = ({ onSearch }) => {
+  const [query, setQuery] = useState('');
+
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    onSearch(trimmed);
+  };
+
+  return (
+    <form onSubmit={submit} className="flex gap-2">
+      <input
+        className="flex-1 p-3 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        placeholder="Search products (e.g., 'laptop', 'iphone')"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        aria-label="Search query"
+      />
+      <button
+        type="submit"
+        onClick={submit}
+        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+      >
+        Search
+      </button>
+    </form>
+  );
+};
+
+export default SearchBar;

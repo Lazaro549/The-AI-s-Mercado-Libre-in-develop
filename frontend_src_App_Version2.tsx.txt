@@ -1,0 +1,65 @@
+import React, { useState } from 'react';
+import SearchBar from './components/SearchBar';
+import ProductList from './components/ProductList';
+import type { Product } from './types';
+
+const App: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSearch = async (query: string) => {
+    if (!query) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+      if (!res.ok) {
+        throw new Error(`Server responded with ${res.status}`);
+      }
+      const data = await res.json();
+      // Expecting backend to return array of products with fields id,title,price,thumbnail,link,score?
+      setProducts(data);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch results from backend. Showing mock results.');
+      // Fallback: mocked results so UI remains useful offline
+      setProducts([
+        {
+          id: 'mock-1',
+          title: `Sample product for "${query}"`,
+          price: 123.45,
+          thumbnail: 'https://via.placeholder.com/320x240?text=Product',
+          link: '#',
+          predicted_score: 0.72
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center p-6">
+      <header className="w-full max-w-4xl">
+        <h1 className="text-3xl font-semibold mb-4">The AI's Mercado Libre — Frontend</h1>
+        <p className="text-sm text-gray-600 mb-6">Search for products and see model predictions (placeholder).</p>
+      </header>
+
+      <main className="w-full max-w-4xl">
+        <SearchBar onSearch={handleSearch} />
+
+        {loading && <div className="mt-6 text-gray-700">Loading...</div>}
+        {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
+
+        <ProductList products={products} />
+      </main>
+
+      <footer className="w-full max-w-4xl mt-10 text-sm text-gray-500">
+        <div>Note: This frontend expects an API endpoint at <code>/api/search?query=...</code>.</div>
+      </footer>
+    </div>
+  );
+};
+
+export default App;

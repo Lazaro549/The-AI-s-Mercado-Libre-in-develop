@@ -1,0 +1,40 @@
+import React from 'react';
+import type { Product } from '../types';
+
+const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
+  const score = product.predicted_score ?? null;
+
+  return (
+    <div className="bg-white rounded-lg shadow p-4 flex flex-col">
+      <div className="h-48 w-full mb-4 bg-gray-100 rounded overflow-hidden flex items-center justify-center">
+        {product.thumbnail ? (
+          // eslint-disable-next-line jsx-a11y/img-redundant-alt
+          <img src={product.thumbnail} alt={`Image of ${product.title}`} className="object-cover h-full w-full" />
+        ) : (
+          <div className="text-gray-400">No image</div>
+        )}
+      </div>
+
+      <div className="flex-1">
+        <h3 className="text-lg font-medium mb-1">{product.title}</h3>
+        <div className="text-indigo-600 font-semibold mb-3">${product.price?.toFixed(2)}</div>
+        {score !== null && (
+          <div className="text-sm text-gray-700 mb-2">Predicted score: <span className="font-medium">{(score * 100).toFixed(0)}%</span></div>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <a
+          href={product.link ?? '#'}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-block bg-gray-100 text-gray-800 px-3 py-2 rounded hover:bg-gray-200"
+        >
+          View product
+        </a>
+      </div>
+    </div>
+  );
+};
+
+export default ProductCard;
