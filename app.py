@@ -1,72 +1,78 @@
-# app.py
+# app_batch.py
 
-from analyzer.metrics import summarize_metrics
+from analyzer.product_ranking import rank_products, group_by_action
 from analyzer.diagnosis import diagnose
 from analyzer.recommendations import generate_recommendations
 
-from ads.acos_optimizer import evaluate_acos, suggest_acos_adjustment
-from ads.bidding_logic import bidding_strategy, calculate_max_cpc
 
+def analyze_catalog(products):
+    print("\n========== ANÁLISIS MASIVO DE PRODUCTOS ==========\n")
 
-def analyze_product(data, target_acos):
-    print("\n--- ANÁLISIS DE PUBLICACIÓN ---\n")
+    # 1. Ranking
+    ranked = rank_products(products)
 
-    # 1. Métricas
-    metrics = summarize_metrics(data)
-    print("Métricas:")
-    print(metrics)
+    print("🔝 TOP PRODUCTOS (ordenados por rendimiento):\n")
+    for p in ranked:
+        print(f"ID: {p['product_id']}")
+        print(f"Score: {p['score']} | Categoría: {p['category']}")
+        print(f"Métricas: {p['metrics']}")
+        print("-" * 50)
 
-    # 2. Diagnóstico
-    problems = diagnose(metrics)
-    print("\nProblemas detectados:")
-    for p in problems:
-        print("-", p["message"])
+    # 2. Agrupación por acción
+    grouped = group_by_action(ranked)
 
-    # 3. Recomendaciones
-    actions = generate_recommendations(problems)
-    print("\nAcciones recomendadas:")
-    for a in actions:
-        print("-", a)
+    print("\n📊 RESUMEN DE ACCIONES:\n")
+    print(f"🟢 Escalar: {len(grouped['scale'])}")
+    print(f"🟡 Optimizar: {len(grouped['optimize'])}")
+    print(f"🔴 Pausar: {len(grouped['pause'])}")
 
-    # 4. Evaluación de ACOS
-    acos_status = evaluate_acos(metrics["acos"], target_acos)
-    acos_actions = suggest_acos_adjustment(metrics["acos"], target_acos)
+    # 3. Detalle por grupo (solo problemas y acciones)
+    for category, items in grouped.items():
+        print(f"\n===== {category.upper()} =====\n")
 
-    print("\nEstado de ACOS:")
-    print("-", acos_status["message"])
+        for product in items:
+            print(f"Producto: {product['product_id']}")
+            problems = diagnose(product["metrics"])
+            actions = generate_recommendations(problems)
 
-    print("\nAcciones sobre ACOS:")
-    for a in acos_actions:
-        print("-", a)
+            print("Problemas:")
+            for p in problems:
+                print("-", p["message"])
 
-    # 5. Estrategia de pujas
-    cpc = calculate_max_cpc(
-        target_acos,
-        data["revenue"] / data["sales"] if data["sales"] > 0 else 0,
-        metrics["conversion_rate"]
-    )
+            print("Acciones:")
+            for a in actions:
+                print("-", a)
 
-    strategy = bidding_strategy(metrics, target_acos)
-
-    print("\nEstrategia de pujas:")
-    print("- CPC máximo sugerido:", round(cpc, 2))
-
-    for s in strategy:
-        print("-", s)
-
-    print("\n--- FIN DEL ANÁLISIS ---\n")
+            print("-" * 50)
 
 
 if __name__ == "__main__":
-    # 🔧 Datos de prueba (esto luego lo conectas a datos reales)
-    product_data = {
-        "impressions": 12000,
-        "clicks": 150,
-        "sales": 3,
-        "ad_spend": 900,
-        "revenue": 3000
-    }
+    # 🔧 Simulación de catálogo (reemplazar con datos reales)
+    products = [
+        {
+            "id": "A1",
+            "impressions": 15000,
+            "clicks": 800,
+            "sales": 60,
+            "ad_spend": 2000,
+            "revenue": 12000
+        },
+        {
+            "id": "B2",
+            "impressions": 12000,
+            "clicks": 200,
+            "sales": 5,
+            "ad_spend": 1500,
+            "revenue": 4000
+        },
+        {
+            "id": "C3",
+            "impressions": 9000,
+            "clicks": 90,
+            "sales": 1,
+            "ad_spend": 800,
+            "revenue": 1500
+        }
+    ]
 
-    target_acos = 0.25
-
-    analyze_product(product_data, target_acos)
+    analyze_catalog(products)
