@@ -9,7 +9,7 @@
 "free_shipping": true,
 "condition": "new",
 
-```
+
   "metrics": {
     "impressions": 12000,
     "clicks": 240,
@@ -37,7 +37,7 @@
     "acos": 75
   }
 }
-```
+
 
 ]
 }
