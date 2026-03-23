@@ -6,40 +6,40 @@ from analyzer.recommendations import generate_recommendations
 
 
 def analyze_catalog(products):
-    print("\n========== ANÁLISIS MASIVO DE PRODUCTOS ==========\n")
+    print("\n========== BULK PRODUCT ANALYSIS ==========\n")
 
     # 1. Ranking
     ranked = rank_products(products)
 
-    print("🔝 TOP PRODUCTOS (ordenados por rendimiento):\n")
+    print("🔝 TOP PRODUCTS (sorted by performance):\n")
     for p in ranked:
         print(f"ID: {p['product_id']}")
-        print(f"Score: {p['score']} | Categoría: {p['category']}")
-        print(f"Métricas: {p['metrics']}")
+        print(f"Score: {p['score']} | Category: {p['category']}")
+        print(f"Metrics: {p['metrics']}")
         print("-" * 50)
 
-    # 2. Agrupación por acción
+    # 2. Group by action
     grouped = group_by_action(ranked)
 
-    print("\n📊 RESUMEN DE ACCIONES:\n")
-    print(f"🟢 Escalar: {len(grouped['scale'])}")
-    print(f"🟡 Optimizar: {len(grouped['optimize'])}")
-    print(f"🔴 Pausar: {len(grouped['pause'])}")
+    print("\n📊 ACTION SUMMARY:\n")
+    print(f"🟢 Scale: {len(grouped['scale'])}")
+    print(f"🟡 Optimize: {len(grouped['optimize'])}")
+    print(f"🔴 Pause: {len(grouped['pause'])}")
 
-    # 3. Detalle por grupo (solo problemas y acciones)
+    # 3. Detailed breakdown
     for category, items in grouped.items():
         print(f"\n===== {category.upper()} =====\n")
 
         for product in items:
-            print(f"Producto: {product['product_id']}")
+            print(f"Product: {product['product_id']}")
             problems = diagnose(product["metrics"])
             actions = generate_recommendations(problems)
 
-            print("Problemas:")
+            print("Problems:")
             for p in problems:
                 print("-", p["message"])
 
-            print("Acciones:")
+            print("Recommended Actions:")
             for a in actions:
                 print("-", a)
 
@@ -47,7 +47,7 @@ def analyze_catalog(products):
 
 
 if __name__ == "__main__":
-    # 🔧 Simulación de catálogo (reemplazar con datos reales)
+    # 🔧 Sample data (replace with real data)
     products = [
         {
             "id": "A1",
