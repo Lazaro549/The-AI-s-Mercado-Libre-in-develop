@@ -4,12 +4,14 @@ import streamlit as st
 import pandas as pd
 
 from analyzer.product_ranking import rank_products, group_by_action
+from analyzer.diagnosis import diagnose
+from analyzer.recommendations import generate_recommendations
 
 
 st.set_page_config(page_title="ML Optimizer", layout="wide")
 
 st.title("🚀 Mercado Libre AI Optimizer")
-st.markdown("Product performance analysis with traffic light system")
+st.markdown("Product performance analysis with actionable insights")
 
 # =========================
 # DATA UPLOAD
@@ -26,7 +28,7 @@ def load_data(file):
 
 
 # =========================
-# TRAFFIC LIGHT COLORS
+# TRAFFIC LIGHT
 # =========================
 
 def color_category(category):
@@ -39,7 +41,7 @@ def color_category(category):
 
 
 # =========================
-# DASHBOARD
+# MAIN
 # =========================
 
 if uploaded_file:
@@ -48,11 +50,13 @@ if uploaded_file:
     ranked = rank_products(products)
     grouped = group_by_action(ranked)
 
-    # Convert to DataFrame
     df = pd.DataFrame(ranked)
 
     df["action"] = df["category"].apply(color_category)
-    df["score"] = df["score"]
+
+    # =========================
+    # OVERVIEW
+    # =========================
 
     st.subheader("📊 Overview")
 
@@ -61,6 +65,19 @@ if uploaded_file:
     col1.metric("🟢 Scale", len(grouped["scale"]))
     col2.metric("🟡 Optimize", len(grouped["optimize"]))
     col3.metric("🔴 Pause", len(grouped["pause"]))
+
+    st.divider()
+
+    # =========================
+    # TOP PRODUCTS
+    # =========================
+
+    st.subheader("🏆 Top Performers")
+
+    top_products = df.sort_values(by="score", ascending=False).head(3)
+
+    for _, row in top_products.iterrows():
+        st.success(f"{row['product_id']} | Score: {row['score']} | {row['action']}")
 
     st.divider()
 
@@ -81,7 +98,7 @@ if uploaded_file:
     # FILTER
     # =========================
 
-    st.subheader("🔍 Filter by action")
+    st.subheader("🔍 Filter")
 
     option = st.selectbox(
         "Select category",
@@ -115,14 +132,61 @@ if uploaded_file:
 
     selected_product = next(p for p in ranked if p["product_id"] == selected)
 
-    st.write("### Metrics")
-    st.json(selected_product["metrics"])
+    metrics = selected_product["metrics"]
 
-    st.write("### Score")
-    st.write(selected_product["score"])
+    # =========================
+    # KPIs
+    # =========================
 
-    st.write("### Recommended Action")
+    st.write("### 📊 Key Metrics")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("CTR", f"{metrics['ctr']:.2%}")
+    col2.metric("Conversion Rate", f"{metrics['conversion_rate']:.2%}")
+    col3.metric("ACOS", f"{metrics['acos']:.2%}")
+
+    # =========================
+    # MONEY METRICS
+    # =========================
+
+    st.write("### 💰 Financials")
+
+    original = next(p for p in products if p["id"] == selected)
+
+    col1, col2 = st.columns(2)
+
+    col1.metric("Revenue", f"${original['revenue']}")
+    col2.metric("Ad Spend", f"${original['ad_spend']}")
+
+    # =========================
+    # ACTION
+    # =========================
+
+    st.write("### 🚦 Recommended Action")
     st.write(color_category(selected_product["category"]))
 
+    # =========================
+    # DIAGNOSIS
+    # =========================
+
+    st.write("### ⚠️ Detected Problems")
+
+    problems = diagnose(metrics)
+
+    for p in problems:
+        st.warning(p["message"])
+
+    # =========================
+    # RECOMMENDATIONS
+    # =========================
+
+    st.write("### ✅ Recommended Actions")
+
+    actions = generate_recommendations(problems)
+
+    for a in actions:
+        st.write(f"- {a}")
+
 else:
-    st.info("👈 Upload a CSV file to get started")
+    st.info("👈 Upload a CSV file to start analysis")
