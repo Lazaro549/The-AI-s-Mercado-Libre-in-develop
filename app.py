@@ -9,75 +9,59 @@ from ads.bidding_logic import bidding_strategy, calculate_max_cpc
 
 
 def analyze_product(data, target_acos):
-    # 1. Calcular métricas
+    print("\n--- ANÁLISIS DE PUBLICACIÓN ---\n")
+
+    # 1. Métricas
     metrics = summarize_metrics(data)
+    print("Métricas:")
+    print(metrics)
 
     # 2. Diagnóstico
     problems = diagnose(metrics)
+    print("\nProblemas detectados:")
+    for p in problems:
+        print("-", p["message"])
 
-    # 3. Recomendaciones de publicación
-    recommendations = generate_recommendations(problems)
+    # 3. Recomendaciones
+    actions = generate_recommendations(problems)
+    print("\nAcciones recomendadas:")
+    for a in actions:
+        print("-", a)
 
     # 4. Evaluación de ACOS
     acos_status = evaluate_acos(metrics["acos"], target_acos)
     acos_actions = suggest_acos_adjustment(metrics["acos"], target_acos)
 
+    print("\nEstado de ACOS:")
+    print("-", acos_status["message"])
+
+    print("\nAcciones sobre ACOS:")
+    for a in acos_actions:
+        print("-", a)
+
     # 5. Estrategia de pujas
     cpc = calculate_max_cpc(
         target_acos,
-        data["revenue"] / max(data["sales"], 1),
+        data["revenue"] / data["sales"] if data["sales"] > 0 else 0,
         metrics["conversion_rate"]
     )
 
-    bidding_actions = bidding_strategy(metrics, target_acos)
+    strategy = bidding_strategy(metrics, target_acos)
 
-    # 6. Resultado final
-    return {
-        "metrics": metrics,
-        "diagnosis": problems,
-        "recommendations": recommendations,
-        "acos": {
-            "status": acos_status,
-            "actions": acos_actions
-        },
-        "ads": {
-            "max_cpc": cpc,
-            "bidding_strategy": bidding_actions
-        }
-    }
+    print("\nEstrategia de pujas:")
+    print("- CPC máximo sugerido:", round(cpc, 2))
 
+    for s in strategy:
+        print("-", s)
 
-def print_report(result):
-    print("\n--- REPORTE DE PRODUCTO ---\n")
-
-    print("📊 Métricas:")
-    for k, v in result["metrics"].items():
-        print(f"- {k}: {round(v, 4)}")
-
-    print("\n🔍 Diagnóstico:")
-    for d in result["diagnosis"]:
-        print(f"- {d['message']}")
-
-    print("\n⚙️ Recomendaciones:")
-    for r in result["recommendations"]:
-        print(f"- {r}")
-
-    print("\n💰 ACOS:")
-    print(f"- Estado: {result['acos']['status']['message']}")
-    for a in result["acos"]["actions"]:
-        print(f"- {a}")
-
-    print("\n⚔️ Estrategia Ads:")
-    print(f"- CPC máximo sugerido: {round(result['ads']['max_cpc'], 2)}")
-    for s in result["ads"]["bidding_strategy"]:
-        print(f"- {s}")
+    print("\n--- FIN DEL ANÁLISIS ---\n")
 
 
 if __name__ == "__main__":
-    # 🔴 Simulación (debes reemplazar con datos reales)
+    # 🔧 Datos de prueba (esto luego lo conectas a datos reales)
     product_data = {
-        "impressions": 15000,
-        "clicks": 120,
+        "impressions": 12000,
+        "clicks": 150,
         "sales": 3,
         "ad_spend": 900,
         "revenue": 3000
@@ -85,5 +69,4 @@ if __name__ == "__main__":
 
     target_acos = 0.25
 
-    result = analyze_product(product_data, target_acos)
-    print_report(result)
+    analyze_product(product_data, target_acos)
