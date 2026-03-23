@@ -1,0 +1,44 @@
+{
+"products": [
+{
+"id": "MLM123456789",
+"title": "Audífonos Bluetooth Inalámbricos Noise Cancelling",
+"price": 299,
+"category": "Electrónica > Audio > Audífonos",
+"stock": 50,
+"free_shipping": true,
+"condition": "new",
+
+```
+  "metrics": {
+    "impressions": 12000,
+    "clicks": 240,
+    "sales": 12,
+    "revenue": 3588,
+    "ad_spend": 900,
+    "acos": 25
+  }
+},
+{
+  "id": "MLM987654321",
+  "title": "Playera Deportiva Hombre Secado Rápido Gym",
+  "price": 199,
+  "category": "Ropa > Hombre > Playeras",
+  "stock": 120,
+  "free_shipping": false,
+  "condition": "new",
+
+  "metrics": {
+    "impressions": 8000,
+    "clicks": 80,
+    "sales": 2,
+    "revenue": 398,
+    "ad_spend": 300,
+    "acos": 75
+  }
+}
+```
+
+]
+}
+
