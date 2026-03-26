@@ -225,7 +225,3 @@ Contributions are welcome in:
 
 MIT License
 
-## 📄 License
-
-MIT License
-
