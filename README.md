@@ -225,3 +225,10 @@ Contributions are welcome in:
 
 MIT License
 
+## 💸 Donations
+
+- 🇦🇷 ARS (Argentina)  
+  Alias: `lazaro.503.alaba.mp`
+
+- 🌎 USD (local transfers within Argentina only)  
+  Alias: `ahogada.duras.foca`
