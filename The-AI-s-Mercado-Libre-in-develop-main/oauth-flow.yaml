@@ -1,0 +1,80 @@
+project:
+  name: Mercado Libre OAuth Flow
+  description: >
+    Conceptual description of the OAuth 2.0 Authorization Code flow
+    used by Mercado Libre APIs to grant secure access to third-party
+    applications.
+  audience:
+    - Backend Engineers
+    - Platform Engineers
+    - API Consumers
+  disclaimer: >
+    This file is for educational and portfolio purposes only.
+    It does not represent official Mercado Libre documentation.
+
+oauth:
+  version: "2.0"
+  flow: Authorization Code
+
+endpoints:
+  authorization:
+    method: GET
+    url: https://auth.mercadolibre.com/authorization
+    description: Redirects the user to Mercado Libre for authentication and consent
+    params:
+      - name: client_id
+        required: true
+      - name: redirect_uri
+        required: true
+      - name: response_type
+        value: code
+      - name: scope
+        required: true
+
+  token:
+    method: POST
+    url: https://api.mercadolibre.com/oauth/token
+    description: Exchanges authorization code for an access token
+    body:
+      grant_type: authorization_code
+      client_id: APP_ID
+      client_secret: CLIENT_SECRET
+      code: AUTHORIZATION_CODE
+      redirect_uri: https://yourapp.com/callback
+
+resources:
+  user:
+    endpoint: /users/me
+    method: GET
+    description: Returns information about the authenticated user
+    authentication: Bearer Token
+
+security:
+  token_type: Bearer
+  expires_in: 21600
+  refresh_token: supported
+
+flow_steps:
+  - step: 1
+    actor: Application
+    action: Redirect user to Mercado Libre authorization endpoint
+
+  - step: 2
+    actor: User
+    action: Authenticate on Mercado Libre
+
+  - step: 3
+    actor: Mercado Libre
+    action: Ask user to authorize application
+
+  - step: 4
+    actor: Application
+    action: Receive authorization code
+
+  - step: 5
+    actor: Application
+    action: Exchange authorization code for access token
+
+  - step: 6
+    actor: Application
+    action: Access protected resources using access token
