@@ -1,237 +1,195 @@
 """
-Pytest test suite for the :mod:`analyzer.recommendations` module.
+Tests for analyzer.recommendations.
 
-The tests are intentionally generic: they do not depend on the internal
-implementation details or specific constant values.  They instead verify
-that the public recommendation function behaves consistently across
-different performance scenarios and correctly handles edge cases such as
-insufficient data or zero metrics.
+These tests validate the public API:
+    generate_recommendations(problems)
 
-The test suite dynamically discovers the recommendation function in the
-module, allowing it to adapt to different function names without
-requiring modifications to the production code.
+The tests intentionally verify behavior rather than implementation details.
 """
 
-import inspect
-from typing import Any
-
-import pandas as pd
 import pytest
 
-import analyzer.recommendations as rec_mod
+from analyzer.recommendations import generate_recommendations
 
 
-def _find_recommendation_function() -> Any:
-    """
-    Locate the recommendation function in :mod:`analyzer.recommendations`.
+def test_generate_recommendations_requires_list():
+    """The function should reject non-list inputs."""
+    with pytest.raises(TypeError):
+        generate_recommendations(None)
 
-    The function is expected to accept a :class:`pandas.DataFrame` (or a
-    compatible input) and return a recommendation as a string or dictionary.
-    """
-    candidate_names = [
-        "recommend",
-        "get_recommendation",
-        "evaluate_performance",
-        "recommendation",
-        "recommendation_for_product",
-    ]
-    for name in candidate_names:
-        if hasattr(rec_mod, name):
-            return getattr(rec_mod, name)
-    raise RuntimeError(
-        "Could not locate the recommendation function in "
-        "analyzer.recommendations.  Expected one of: "
-        f"{', '.join(candidate_names)}"
-    )
+    with pytest.raises(TypeError):
+        generate_recommendations({})
+
+    with pytest.raises(TypeError):
+        generate_recommendations("low_ctr")
 
 
-# Global reference to the recommendation function
-RECOMMEND_FUNC = _find_recommendation_function()
+def test_empty_problem_list_returns_empty_list():
+    """No problems should produce no recommendations."""
+    result = generate_recommendations([])
 
-
-@pytest.fixture
-def sample_df() -> pd.DataFrame:
-    """
-    Return a minimal dataframe used for testing.
-
-    The dataframe contains the most common metrics that the
-    recommendation logic relies on.  The exact column names are not
-    critical; the tests simply need to provide a dataframe that
-    mimics realistic input.
-    """
-    return pd.DataFrame(
-        [
-            {
-                "sales_volume": 100,
-                "conversion_rate": 0.05,
-                "average_price": 150.0,
-                "inventory_level": 50,
-            }
-        ]
-    )
-
-
-def _call_recommender(df: pd.DataFrame) -> Any:
-    """
-    Helper that calls the recommendation function with the provided ``df``.
-    """
-    try:
-        return RECOMMEND_FUNC(df)
-    except TypeError as exc:
-        # If the function expects additional arguments, try supplying
-        # dummy values for the remaining parameters.
-        sig = inspect.signature(RECOMMEND_FUNC)
-        params = list(sig.parameters.values())
-        if len(params) > 1:
-            # Build a tuple of dummy arguments (None) for the remaining
-            # parameters.  The first argument is always the dataframe.
-            dummy_args = [df] + [None] * (len(params) - 1)
-            return RECOMMEND_FUNC(*dummy_args)
-        raise exc
+    assert isinstance(result, list)
+    assert result == []
 
 
 @pytest.mark.parametrize(
-    "metrics,expected_keywords",
+    "problem_type, expected_keywords",
     [
-        # Strong performance: high sales and conversion, sufficient inventory
         (
-            {
-                "sales_volume": 1000,
-                "conversion_rate": 0.1,
-                "average_price": 200.0,
-                "inventory_level": 200,
-            },
-            {"increase", "maintain", "strong", "optimal"},
+            "low_ctr",
+            ["título", "imagen", "precio"],
         ),
-        # Weak performance: low sales and conversion, inventory low
         (
-            {
-                "sales_volume": 10,
-                "conversion_rate": 0.01,
-                "average_price": 200.0,
-                "inventory_level": 5,
-            },
-            {"decrease", "promo", "weak", "low"},
+            "low_conversion",
+            ["precio", "descripción", "reputación"],
         ),
-        # Optimization scenario: moderate metrics, recommendation to fine‑tune
         (
-            {
-                "sales_volume": 300,
-                "conversion_rate": 0.05,
-                "average_price": 180.0,
-                "inventory_level": 80,
-            },
-            {"optimize", "adjust", "review", "balance"},
+            "high_acos",
+            ["acos", "pausar", "inversión"],
         ),
-        # Insufficient data: zeros or NaNs
         (
-            {
-                "sales_volume": 0,
-                "conversion_rate": 0.0,
-                "average_price": 0.0,
-                "inventory_level": 0,
-            },
-            {"insufficient", "cannot", "none"},
-        ),
-        # Minimal input: single record with typical values
-        (
-            {
-                "sales_volume": 50,
-                "conversion_rate": 0.02,
-                "average_price": 120.0,
-                "inventory_level": 20,
-            },
-            {"maintain", "increase", "decrease", "optimize"},
+            "healthy",
+            ["escalar", "activa", "similares"],
         ),
     ],
 )
-def test_recommendation_keywords(metrics, expected_keywords):
-    """
-    Verify that the recommendation string contains an appropriate
-    keyword for each performance scenario.
+def test_generate_recommendations_for_problem_type(
+    problem_type,
+    expected_keywords,
+):
+    """Each supported problem type should generate actionable recommendations."""
+    problems = [
+        {
+            "type": problem_type,
+            "message": f"Test problem: {problem_type}",
+        }
+    ]
 
-    The test is intentionally tolerant: as long as the output
-    contains at least one keyword from the expected set, the branch
-    is considered correctly triggered.
-    """
-    df = pd.DataFrame([metrics])
-    recommendation = _call_recommender(df)
+    result = generate_recommendations(problems)
 
-    # Normalise the recommendation to string for keyword matching
-    if isinstance(recommendation, dict):
-        # Assume the primary recommendation is stored under 'action'
-        recommendation_str = str(recommendation.get("action", ""))
-    else:
-        recommendation_str = str(recommendation)
+    assert isinstance(result, list)
+    assert len(result) == 3
 
-    recommendation_str_lower = recommendation_str.lower()
+    result_text = " ".join(result).lower()
 
-    # At least one expected keyword must appear in the recommendation
-    assert any(
-        kw in recommendation_str_lower for kw in expected_keywords
-    ), f"Recommendation '{recommendation_str}' does not contain any expected keyword for metrics {metrics}"
+    for keyword in expected_keywords:
+        assert keyword.lower() in result_text
 
 
-def test_recommendation_deterministic(sample_df):
-    """
-    Ensure that the recommendation function is deterministic: the same
-    input always yields the same output.
-    """
-    first_call = _call_recommender(sample_df)
-    second_call = _call_recommender(sample_df)
-    assert first_call == second_call, "Recommendation output changed for identical input"
+def test_multiple_problems_generate_combined_recommendations():
+    """Multiple problems should produce recommendations for all problems."""
+    problems = [
+        {
+            "type": "low_ctr",
+            "message": "CTR is below target",
+        },
+        {
+            "type": "low_conversion",
+            "message": "Conversion rate is below target",
+        },
+        {
+            "type": "high_acos",
+            "message": "ACOS is above target",
+        },
+    ]
+
+    result = generate_recommendations(problems)
+
+    assert isinstance(result, list)
+    assert len(result) == 9
 
 
-def test_recommendation_type(sample_df):
-    """
-    The recommendation should be a string or dictionary.
-    """
-    recommendation = _call_recommender(sample_df)
-    assert isinstance(recommendation, (str, dict)), (
-        f"Recommendation returned type {type(recommendation)}; expected str or dict"
+def test_healthy_problem_generates_scaling_recommendations():
+    """Healthy products should receive scaling-oriented recommendations."""
+    problems = [
+        {
+            "type": "healthy",
+            "message": "Product performance is healthy",
+        }
+    ]
+
+    result = generate_recommendations(problems)
+
+    result_text = " ".join(result).lower()
+
+    assert "escalar presupuesto" in result_text
+    assert "campaña" in result_text
+
+
+def test_unknown_problem_type_is_ignored():
+    """Unknown problem types should not crash the function."""
+    problems = [
+        {
+            "type": "unknown_problem",
+            "message": "Unknown problem",
+        }
+    ]
+
+    result = generate_recommendations(problems)
+
+    assert isinstance(result, list)
+    assert result == []
+
+
+def test_problem_without_type_is_ignored():
+    """Problems without a type should be safely ignored."""
+    problems = [
+        {
+            "message": "Missing problem type",
+        }
+    ]
+
+    result = generate_recommendations(problems)
+
+    assert isinstance(result, list)
+    assert result == []
+
+
+def test_recommendations_are_strings():
+    """Every generated recommendation should be a string."""
+    problems = [
+        {"type": "low_ctr", "message": "Low CTR"},
+        {"type": "low_conversion", "message": "Low conversion"},
+        {"type": "high_acos", "message": "High ACOS"},
+        {"type": "healthy", "message": "Healthy"},
+    ]
+
+    result = generate_recommendations(problems)
+
+    assert all(isinstance(recommendation, str) for recommendation in result)
+
+
+def test_recommendations_are_deterministic():
+    """The same input should always produce the same output."""
+    problems = [
+        {
+            "type": "high_acos",
+            "message": "ACOS is too high",
+        }
+    ]
+
+    first_result = generate_recommendations(problems)
+    second_result = generate_recommendations(problems)
+
+    assert first_result == second_result
+
+
+def test_problem_message_does_not_change_recommendation_logic():
+    """Recommendation logic should depend on problem type."""
+    problems_a = [
+        {
+            "type": "low_ctr",
+            "message": "CTR is terrible",
+        }
+    ]
+
+    problems_b = [
+        {
+            "type": "low_ctr",
+            "message": "CTR needs improvement",
+        }
+    ]
+
+    assert generate_recommendations(problems_a) == generate_recommendations(
+        problems_b
     )
-
-
-def test_recommendation_handles_missing_columns(sample_df):
-    """
-    When the input dataframe is missing expected columns, the function
-    should still produce a recommendation indicating insufficient data.
-    """
-    # Remove a key metric
-    df_missing = sample_df.drop(columns=["sales_volume"])
-    recommendation = _call_recommender(df_missing)
-
-    if isinstance(recommendation, dict):
-        recommendation_str = str(recommendation.get("action", ""))
-    else:
-        recommendation_str = str(recommendation)
-
-    assert (
-        "insufficient" in recommendation_str.lower()
-        or "cannot" in recommendation_str.lower()
-    ), f"Recommendation for missing columns: {recommendation_str}"
-
-
-def test_recommendation_zero_rows():
-    """
-    An empty dataframe should trigger an insufficient‑data recommendation.
-    """
-    empty_df = pd.DataFrame(
-        columns=[
-            "sales_volume",
-            "conversion_rate",
-            "average_price",
-            "inventory_level",
-        ]
-    )
-    recommendation = _call_recommender(empty_df)
-
-    if isinstance(recommendation, dict):
-        recommendation_str = str(recommendation.get("action", ""))
-    else:
-        recommendation_str = str(recommendation)
-
-    assert (
-        "insufficient" in recommendation_str.lower()
-        or "cannot" in recommendation_str.lower()
-    ), f"Recommendation for empty dataframe: {recommendation_str}"
