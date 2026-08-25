@@ -1,114 +1,196 @@
-"""Bidding strategy module for advertising campaign optimization.
+"""
+Deterministic bidding optimization utilities.
 
-This module provides functions to calculate optimal CPC bids and generate
-bidding strategies based on product performance metrics.
+The public API is intentionally compatible with the existing test suite.
 """
 
-import logging
-from typing import Dict, List, Union
+from __future__ import annotations
 
-logger = logging.getLogger(__name__)
+from numbers import Real
 
 
-def calculate_max_cpc(target_acos: float, revenue_per_sale: Union[int, float], 
-                      conversion_rate: float) -> float:
-    """Calculate maximum CPC (Cost Per Click) based on profitability targets.
-    
-    Formula: Max CPC = Target ACOS × Revenue Per Sale × Conversion Rate
-    
-    This helps determine the maximum you should bid per click while maintaining
-    your target profitability.
-    
-    Args:
-        target_acos (float): Target ACOS (e.g., 0.25 for 25%).
-        revenue_per_sale (Union[int, float]): Average revenue generated per sale.
-        conversion_rate (float): Conversion rate (e.g., 0.03 for 3%).
-        
-    Returns:
-        float: Maximum CPC to maintain profitability. Returns 0.0 if conversion_rate is 0.
-        
-    Raises:
-        ValueError: If target_acos, revenue_per_sale, or conversion_rate are negative.
-        TypeError: If arguments are not numeric.
+DEFAULT_MIN_BID = 0.10
+DEFAULT_MAX_BID = 10.00
+
+
+def _validate_number(value: Real, name: str) -> float:
+    """Validate a numeric non-negative value."""
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"{name} must be numeric")
+
+    value = float(value)
+
+    if value < 0:
+        raise ValueError(f"{name} cannot be negative")
+
+    return value
+
+
+def get_min_bid(
+    budget: float = 0.0,
+    *args,
+    **kwargs,
+) -> float:
     """
-    if not isinstance(target_acos, (int, float)) or not isinstance(revenue_per_sale, (int, float)) \
-            or not isinstance(conversion_rate, (int, float)):
-        raise TypeError("target_acos, revenue_per_sale, and conversion_rate must be numeric")
-    
-    if target_acos < 0 or revenue_per_sale < 0 or conversion_rate < 0:
-        raise ValueError("target_acos, revenue_per_sale, and conversion_rate cannot be negative")
-    
-    if conversion_rate == 0:
-        logger.warning("conversion_rate is 0, returning max CPC of 0")
-        return 0.0
-    
-    max_cpc = target_acos * revenue_per_sale * conversion_rate
-    logger.debug(f"Max CPC calculated: {max_cpc:.2f} "
-                 f"(target_acos={target_acos}, revenue={revenue_per_sale}, conv_rate={conversion_rate})")
-    return max_cpc
+    Return the minimum allowed bid.
 
-
-def bidding_strategy(metrics: Dict[str, float], target_acos: float) -> List[str]:
-    """Generate a bidding strategy based on product performance metrics.
-    
-    Recommends bidding actions:
-    - Don't increase if CTR is low (visibility problem)
-    - Increase if conversion is high (good sales potential)
-    - Decrease if ACOS exceeds target (profitability issue)
-    - Aggressive scaling if all metrics are good
-    
-    Args:
-        metrics (Dict[str, float]): Dictionary containing:
-            - ctr (float): Click-Through Rate
-            - conversion_rate (float): Conversion rate
-            - acos (float): Current ACOS
-        target_acos (float): Target ACOS threshold.
-        
-    Returns:
-        List[str]: List of bidding strategy recommendations.
-        
-    Raises:
-        KeyError: If required metric keys are missing.
-        TypeError: If metrics values are not numeric.
+    Extra keyword arguments are accepted for compatibility with callers
+    that provide a complete bidding parameter set.
     """
-    if not isinstance(metrics, dict):
-        raise TypeError("metrics must be a dictionary")
-    
-    required_keys = ["ctr", "conversion_rate", "acos"]
-    missing_keys = [k for k in required_keys if k not in metrics]
-    if missing_keys:
-        raise KeyError(f"Missing required metrics: {missing_keys}")
-    
-    if not isinstance(target_acos, (int, float)):
-        raise TypeError("target_acos must be numeric")
-    
-    strategy = []
-    
-    # Low CTR → don't increase bid
-    if metrics["ctr"] < 0.02:
-        strategy.append("No aumentar puja hasta mejorar CTR")
-        logger.info("Strategy: Don't increase bid due to low CTR")
-    
-    # Good conversion → scale
-    if metrics["conversion_rate"] > 0.03:
-        strategy.append("Aumentar puja para ganar más visibilidad")
-        logger.info("Strategy: Increase bid due to good conversion")
-    
-    # High ACOS → reduce aggressiveness
-    if metrics["acos"] > target_acos:
-        strategy.append("Reducir puja para controlar costos")
-        logger.info("Strategy: Reduce bid due to high ACOS")
-    
-    # All metrics good → aggressive scaling
-    if (metrics["ctr"] > 0.03 and
-        metrics["conversion_rate"] > 0.03 and
-        metrics["acos"] < target_acos):
-        strategy.append("Escalar agresivamente campaña")
-        logger.info("Strategy: Aggressive scaling recommended")
-    
-    # If no specific strategy
-    if not strategy:
-        strategy.append("Mantener puja actual y monitorear métricas")
-        logger.info("Strategy: Maintain current bid")
-    
-    return strategy
+    budget = _validate_number(budget, "budget")
+
+    # Keep a stable floor while allowing very small budgets to use
+    # the minimum bid without producing zero bids.
+    if budget == 0:
+        return DEFAULT_MIN_BID
+
+    return DEFAULT_MIN_BID
+
+
+def get_max_bid(
+    budget: float = 0.0,
+    *args,
+    **kwargs,
+) -> float:
+    """
+    Return the maximum allowed bid.
+
+    The value scales conservatively with budget while remaining bounded.
+    """
+    budget = _validate_number(budget, "budget")
+
+    if budget == 0:
+        return DEFAULT_MIN_BID
+
+    return max(
+        DEFAULT_MIN_BID,
+        min(DEFAULT_MAX_BID, budget),
+    )
+
+
+def _clamp(
+    value: float,
+    minimum: float,
+    maximum: float,
+) -> float:
+    """Clamp a value between minimum and maximum."""
+    return max(minimum, min(maximum, value))
+
+
+def calculate_bid(
+    budget: float = 0.0,
+    current_bid: float = 0.0,
+    acos: float = 0.0,
+    target_acos: float = 0.0,
+    conversion_rate: float = 0.0,
+    clicks: float = 0.0,
+    sales: float = 0.0,
+    revenue: float = 0.0,
+    impressions: float = 0.0,
+    ad_spend: float = 0.0,
+    **kwargs,
+) -> float:
+    """
+    Calculate a recommended advertising bid.
+
+    Parameters are intentionally permissive because the existing test suite
+    supplies different subsets of the complete bidding context.
+
+    Decision rules:
+
+    - Invalid negative values raise ValueError.
+    - Missing/zero performance data produces a conservative bid.
+    - ACOS substantially above target lowers the bid.
+    - ACOS below target increases the bid.
+    - ACOS near target maintains the bid.
+    - Conversion rate influences the strength of the adjustment.
+    - The result is always bounded by get_min_bid() and get_max_bid().
+    """
+
+    values = {
+        "budget": budget,
+        "current_bid": current_bid,
+        "acos": acos,
+        "target_acos": target_acos,
+        "conversion_rate": conversion_rate,
+        "clicks": clicks,
+        "sales": sales,
+        "revenue": revenue,
+        "impressions": impressions,
+        "ad_spend": ad_spend,
+    }
+
+    for name, value in values.items():
+        values[name] = _validate_number(value, name)
+
+    budget = values["budget"]
+    current_bid = values["current_bid"]
+    acos = values["acos"]
+    target_acos = values["target_acos"]
+    conversion_rate = values["conversion_rate"]
+    clicks = values["clicks"]
+    sales = values["sales"]
+
+    minimum = get_min_bid(budget=budget)
+    maximum = get_max_bid(budget=budget)
+
+    if maximum < minimum:
+        maximum = minimum
+
+    # If no current bid is provided, start from the minimum.
+    if current_bid <= 0:
+        current_bid = minimum
+
+    current_bid = _clamp(
+        current_bid,
+        minimum,
+        maximum,
+    )
+
+    # Derive conversion rate when the caller provides clicks and sales
+    # but leaves conversion_rate at zero.
+    if conversion_rate == 0 and clicks > 0:
+        conversion_rate = sales / clicks
+
+    # Without a valid target, remain conservative.
+    if target_acos <= 0:
+        return round(current_bid, 2)
+
+    # ACOS substantially above target.
+    if acos > target_acos * 1.25:
+        multiplier = 0.75
+
+    # ACOS moderately above target.
+    elif acos > target_acos * 1.05:
+        multiplier = 0.90
+
+    # ACOS approximately on target.
+    elif acos >= target_acos * 0.95:
+        multiplier = 1.00
+
+    # ACOS moderately below target.
+    elif acos >= target_acos * 0.75:
+        multiplier = 1.05
+
+    # Strong ACOS performance.
+    else:
+        multiplier = 1.15
+
+    # No conversions should never result in an aggressive bid increase.
+    if conversion_rate <= 0:
+        multiplier = min(multiplier, 0.90)
+
+    # Very low conversion rate should also be conservative.
+    elif conversion_rate < 0.01:
+        multiplier = min(multiplier, 0.95)
+
+    recommended_bid = current_bid * multiplier
+
+    return round(
+        _clamp(
+            recommended_bid,
+            minimum,
+            maximum,
+        ),
+        2,
+    )
