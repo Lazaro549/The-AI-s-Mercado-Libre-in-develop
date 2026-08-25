@@ -1,0 +1,29 @@
+{
+  "project": "The-AI-s-Mercado-Libre-in-develop",
+  "timestamp": "2026-08-25T04:18:46.887924+00:00",
+  "evaluation_type": "offline_deterministic",
+  "results": {
+    "recommendations": {
+      "status": "ERROR",
+      "reason": "Could not import recommendation logic: cannot import name 'recommend_action' from 'analyzer.recommendations' (/workspaces/The-AI-s-Mercado-Libre-in-develop/analyzer/recommendations.py)"
+    },
+    "ranking": {
+      "status": "PASS",
+      "cases": 12,
+      "expected_ranking": [],
+      "predicted_ranking": []
+    },
+    "acos_optimizer": {
+      "status": "SKIPPED",
+      "reason": "No ACOS cases found."
+    },
+    "bidding": {
+      "status": "ERROR",
+      "reason": "Could not import bidding logic: cannot import name 'calculate_bid' from 'ads.bidding_logic' (/workspaces/The-AI-s-Mercado-Libre-in-develop/ads/bidding_logic.py)"
+    },
+    "overall_score": 0.0,
+    "status": "REVIEW"
+  },
+  "overall_score": 0.0,
+  "status": "REVIEW"
+}
