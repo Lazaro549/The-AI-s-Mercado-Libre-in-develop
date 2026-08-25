@@ -1,0 +1,620 @@
+{
+  "metadata": {
+    "name": "Mercado Libre Advertising Evaluation Dataset",
+    "version": "1.0.0",
+    "description": "Deterministic synthetic dataset for evaluating advertising diagnosis, recommendations, product ranking, ACOS optimization, and bidding logic.",
+    "synthetic": true,
+    "seed": 42
+  },
+  "recommendation_cases": [
+    {
+      "id": "rec_001",
+      "description": "Strong product with efficient advertising",
+      "input": {
+        "impressions": 12000,
+        "clicks": 720,
+        "conversions": 58,
+        "spend": 145.0,
+        "revenue": 980.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "scale"
+    },
+    {
+      "id": "rec_002",
+      "description": "Strong conversion and low ACOS",
+      "input": {
+        "impressions": 15000,
+        "clicks": 900,
+        "conversions": 72,
+        "spend": 160.0,
+        "revenue": 1100.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "scale"
+    },
+    {
+      "id": "rec_003",
+      "description": "Healthy performance",
+      "input": {
+        "impressions": 10000,
+        "clicks": 600,
+        "conversions": 45,
+        "spend": 120.0,
+        "revenue": 850.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "scale"
+    },
+    {
+      "id": "rec_004",
+      "description": "Efficient product with moderate volume",
+      "input": {
+        "impressions": 8500,
+        "clicks": 510,
+        "conversions": 39,
+        "spend": 105.0,
+        "revenue": 760.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "scale"
+    },
+    {
+      "id": "rec_005",
+      "description": "Good ROAS and low ACOS",
+      "input": {
+        "impressions": 18000,
+        "clicks": 1080,
+        "conversions": 81,
+        "spend": 190.0,
+        "revenue": 1250.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "scale"
+    },
+
+    {
+      "id": "rec_006",
+      "description": "ACOS moderately above target",
+      "input": {
+        "impressions": 12000,
+        "clicks": 720,
+        "conversions": 30,
+        "spend": 250.0,
+        "revenue": 900.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "optimize"
+    },
+    {
+      "id": "rec_007",
+      "description": "High spend relative to revenue",
+      "input": {
+        "impressions": 14000,
+        "clicks": 840,
+        "conversions": 35,
+        "spend": 280.0,
+        "revenue": 1000.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "optimize"
+    },
+    {
+      "id": "rec_008",
+      "description": "Moderate conversion efficiency",
+      "input": {
+        "impressions": 9000,
+        "clicks": 540,
+        "conversions": 24,
+        "spend": 180.0,
+        "revenue": 700.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "optimize"
+    },
+    {
+      "id": "rec_009",
+      "description": "ACOS close to threshold",
+      "input": {
+        "impressions": 11000,
+        "clicks": 660,
+        "conversions": 32,
+        "spend": 210.0,
+        "revenue": 900.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "optimize"
+    },
+    {
+      "id": "rec_010",
+      "description": "High traffic but inefficient return",
+      "input": {
+        "impressions": 20000,
+        "clicks": 1200,
+        "conversions": 42,
+        "spend": 350.0,
+        "revenue": 1100.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "optimize"
+    },
+
+    {
+      "id": "rec_011",
+      "description": "Low conversion despite traffic",
+      "input": {
+        "impressions": 10000,
+        "clicks": 700,
+        "conversions": 4,
+        "spend": 220.0,
+        "revenue": 180.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+    {
+      "id": "rec_012",
+      "description": "Very poor ROAS",
+      "input": {
+        "impressions": 15000,
+        "clicks": 900,
+        "conversions": 5,
+        "spend": 300.0,
+        "revenue": 160.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+    {
+      "id": "rec_013",
+      "description": "High spend with almost no conversions",
+      "input": {
+        "impressions": 13000,
+        "clicks": 780,
+        "conversions": 3,
+        "spend": 270.0,
+        "revenue": 100.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+    {
+      "id": "rec_014",
+      "description": "Low conversion rate",
+      "input": {
+        "impressions": 8000,
+        "clicks": 480,
+        "conversions": 2,
+        "spend": 160.0,
+        "revenue": 90.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+    {
+      "id": "rec_015",
+      "description": "Unprofitable advertising",
+      "input": {
+        "impressions": 17000,
+        "clicks": 1020,
+        "conversions": 6,
+        "spend": 320.0,
+        "revenue": 140.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+
+    {
+      "id": "rec_016",
+      "description": "No impressions",
+      "input": {
+        "impressions": 0,
+        "clicks": 0,
+        "conversions": 0,
+        "spend": 0.0,
+        "revenue": 0.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+    {
+      "id": "rec_017",
+      "description": "Impressions without clicks",
+      "input": {
+        "impressions": 10000,
+        "clicks": 0,
+        "conversions": 0,
+        "spend": 0.0,
+        "revenue": 0.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+    {
+      "id": "rec_018",
+      "description": "Clicks without conversions",
+      "input": {
+        "impressions": 5000,
+        "clicks": 300,
+        "conversions": 0,
+        "spend": 100.0,
+        "revenue": 0.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "pause"
+    },
+    {
+      "id": "rec_019",
+      "description": "Small but highly efficient campaign",
+      "input": {
+        "impressions": 3000,
+        "clicks": 180,
+        "conversions": 18,
+        "spend": 45.0,
+        "revenue": 320.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "scale"
+    },
+    {
+      "id": "rec_020",
+      "description": "Borderline performance",
+      "input": {
+        "impressions": 7000,
+        "clicks": 420,
+        "conversions": 20,
+        "spend": 150.0,
+        "revenue": 650.0,
+        "target_acos": 0.2
+      },
+      "expected_action": "optimize"
+    }
+  ],
+
+  "ranking_products": [
+    {
+      "id": "MLP001",
+      "name": "Wireless Headphones",
+      "impressions": 18000,
+      "clicks": 1260,
+      "conversions": 101,
+      "spend": 180.0,
+      "revenue": 1450.0,
+      "target_acos": 0.2,
+      "expected_rank": 1
+    },
+    {
+      "id": "MLP002",
+      "name": "Mechanical Keyboard",
+      "impressions": 15000,
+      "clicks": 975,
+      "conversions": 78,
+      "spend": 155.0,
+      "revenue": 1180.0,
+      "target_acos": 0.2,
+      "expected_rank": 2
+    },
+    {
+      "id": "MLP003",
+      "name": "Gaming Mouse",
+      "impressions": 14000,
+      "clicks": 840,
+      "conversions": 67,
+      "spend": 140.0,
+      "revenue": 1020.0,
+      "target_acos": 0.2,
+      "expected_rank": 3
+    },
+    {
+      "id": "MLP004",
+      "name": "USB-C Hub",
+      "impressions": 12000,
+      "clicks": 720,
+      "conversions": 52,
+      "spend": 125.0,
+      "revenue": 870.0,
+      "target_acos": 0.2,
+      "expected_rank": 4
+    },
+    {
+      "id": "MLP005",
+      "name": "Laptop Stand",
+      "impressions": 10000,
+      "clicks": 550,
+      "conversions": 42,
+      "spend": 105.0,
+      "revenue": 720.0,
+      "target_acos": 0.2,
+      "expected_rank": 5
+    },
+    {
+      "id": "MLP006",
+      "name": "Webcam",
+      "impressions": 9000,
+      "clicks": 450,
+      "conversions": 32,
+      "spend": 110.0,
+      "revenue": 620.0,
+      "target_acos": 0.2,
+      "expected_rank": 6
+    },
+    {
+      "id": "MLP007",
+      "name": "Bluetooth Speaker",
+      "impressions": 11000,
+      "clicks": 495,
+      "conversions": 29,
+      "spend": 130.0,
+      "revenue": 570.0,
+      "target_acos": 0.2,
+      "expected_rank": 7
+    },
+    {
+      "id": "MLP008",
+      "name": "Smart Watch",
+      "impressions": 13000,
+      "clicks": 520,
+      "conversions": 25,
+      "spend": 170.0,
+      "revenue": 540.0,
+      "target_acos": 0.2,
+      "expected_rank": 8
+    },
+    {
+      "id": "MLP009",
+      "name": "Portable SSD",
+      "impressions": 8000,
+      "clicks": 320,
+      "conversions": 18,
+      "spend": 115.0,
+      "revenue": 410.0,
+      "target_acos": 0.2,
+      "expected_rank": 9
+    },
+    {
+      "id": "MLP010",
+      "name": "USB Microphone",
+      "impressions": 7000,
+      "clicks": 245,
+      "conversions": 12,
+      "spend": 100.0,
+      "revenue": 290.0,
+      "target_acos": 0.2,
+      "expected_rank": 10
+    },
+    {
+      "id": "MLP011",
+      "name": "Budget Earbuds",
+      "impressions": 9000,
+      "clicks": 270,
+      "conversions": 9,
+      "spend": 115.0,
+      "revenue": 220.0,
+      "target_acos": 0.2,
+      "expected_rank": 11
+    },
+    {
+      "id": "MLP012",
+      "name": "Generic Phone Case",
+      "impressions": 12000,
+      "clicks": 240,
+      "conversions": 5,
+      "spend": 120.0,
+      "revenue": 130.0,
+      "target_acos": 0.2,
+      "expected_rank": 12
+    }
+  ],
+
+  "acos_optimizer_cases": [
+    {
+      "id": "acos_001",
+      "current_acos": 0.10,
+      "target_acos": 0.20,
+      "current_bid": 1.0,
+      "expected_direction": "increase"
+    },
+    {
+      "id": "acos_002",
+      "current_acos": 0.12,
+      "target_acos": 0.20,
+      "current_bid": 1.5,
+      "expected_direction": "increase"
+    },
+    {
+      "id": "acos_003",
+      "current_acos": 0.15,
+      "target_acos": 0.20,
+      "current_bid": 2.0,
+      "expected_direction": "increase"
+    },
+    {
+      "id": "acos_004",
+      "current_acos": 0.20,
+      "target_acos": 0.20,
+      "current_bid": 2.0,
+      "expected_direction": "maintain"
+    },
+    {
+      "id": "acos_005",
+      "current_acos": 0.22,
+      "target_acos": 0.20,
+      "current_bid": 2.0,
+      "expected_direction": "decrease"
+    },
+    {
+      "id": "acos_006",
+      "current_acos": 0.30,
+      "target_acos": 0.20,
+      "current_bid": 2.5,
+      "expected_direction": "decrease"
+    },
+    {
+      "id": "acos_007",
+      "current_acos": 0.50,
+      "target_acos": 0.20,
+      "current_bid": 3.0,
+      "expected_direction": "decrease"
+    },
+    {
+      "id": "acos_008",
+      "current_acos": 0.0,
+      "target_acos": 0.20,
+      "current_bid": 1.0,
+      "expected_direction": "increase"
+    }
+  ],
+
+  "bidding_cases": [
+    {
+      "id": "bid_001",
+      "current_bid": 1.0,
+      "acos": 0.10,
+      "target_acos": 0.20,
+      "conversion_rate": 0.10,
+      "expected_direction": "increase"
+    },
+    {
+      "id": "bid_002",
+      "current_bid": 1.5,
+      "acos": 0.12,
+      "target_acos": 0.20,
+      "conversion_rate": 0.08,
+      "expected_direction": "increase"
+    },
+    {
+      "id": "bid_003",
+      "current_bid": 2.0,
+      "acos": 0.20,
+      "target_acos": 0.20,
+      "conversion_rate": 0.06,
+      "expected_direction": "maintain"
+    },
+    {
+      "id": "bid_004",
+      "current_bid": 2.0,
+      "acos": 0.25,
+      "target_acos": 0.20,
+      "conversion_rate": 0.05,
+      "expected_direction": "decrease"
+    },
+    {
+      "id": "bid_005",
+      "current_bid": 2.5,
+      "acos": 0.35,
+      "target_acos": 0.20,
+      "conversion_rate": 0.03,
+      "expected_direction": "decrease"
+    },
+    {
+      "id": "bid_006",
+      "current_bid": 0.5,
+      "acos": 0.08,
+      "target_acos": 0.20,
+      "conversion_rate": 0.12,
+      "expected_direction": "increase"
+    },
+    {
+      "id": "bid_007",
+      "current_bid": 3.0,
+      "acos": 0.60,
+      "target_acos": 0.20,
+      "conversion_rate": 0.01,
+      "expected_direction": "decrease"
+    },
+    {
+      "id": "bid_008",
+      "current_bid": 1.5,
+      "acos": 0.20,
+      "target_acos": 0.20,
+      "conversion_rate": 0.00,
+      "expected_direction": "maintain"
+    }
+  ],
+
+  "edge_cases": [
+    {
+      "id": "edge_001",
+      "description": "Zero impressions",
+      "input": {
+        "impressions": 0,
+        "clicks": 0,
+        "conversions": 0,
+        "spend": 0.0,
+        "revenue": 0.0
+      }
+    },
+    {
+      "id": "edge_002",
+      "description": "Zero clicks",
+      "input": {
+        "impressions": 10000,
+        "clicks": 0,
+        "conversions": 0,
+        "spend": 0.0,
+        "revenue": 0.0
+      }
+    },
+    {
+      "id": "edge_003",
+      "description": "Clicks without conversions",
+      "input": {
+        "impressions": 10000,
+        "clicks": 500,
+        "conversions": 0,
+        "spend": 100.0,
+        "revenue": 0.0
+      }
+    },
+    {
+      "id": "edge_004",
+      "description": "Revenue without advertising spend",
+      "input": {
+        "impressions": 5000,
+        "clicks": 300,
+        "conversions": 20,
+        "spend": 0.0,
+        "revenue": 500.0
+      }
+    },
+    {
+      "id": "edge_005",
+      "description": "Very high ACOS",
+      "input": {
+        "impressions": 15000,
+        "clicks": 600,
+        "conversions": 4,
+        "spend": 500.0,
+        "revenue": 100.0
+      }
+    },
+    {
+      "id": "edge_006",
+      "description": "Very low ACOS",
+      "input": {
+        "impressions": 15000,
+        "clicks": 900,
+        "conversions": 80,
+        "spend": 50.0,
+        "revenue": 1500.0
+      }
+    },
+    {
+      "id": "edge_007",
+      "description": "Empty dataset",
+      "input": {}
+    },
+    {
+      "id": "edge_008",
+      "description": "Large traffic with zero conversions",
+      "input": {
+        "impressions": 100000,
+        "clicks": 5000,
+        "conversions": 0,
+        "spend": 1000.0,
+        "revenue": 0.0
+      }
+    }
+  ]
+}
