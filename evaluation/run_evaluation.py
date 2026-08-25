@@ -1,14 +1,17 @@
 """
-Main evaluation runner for the Mercado Libre AI project.
+Offline evaluation runner for The-AI-s-Mercado-Libre-in-develop.
 
-This module orchestrates the offline evaluation suite without modifying
-the production application logic.
+This module evaluates the existing production logic without modifying it.
 
-Usage:
-    python evaluation/run_evaluation.py
+Evaluated components:
+- analyzer.diagnosis
+- analyzer.recommendations
+- analyzer.product_ranking
+- analyzer.metrics
+- ads.acos_optimizer
 
-Output:
-    evaluation/reports/evaluation_report.json
+Bidding evaluation is reported as SKIPPED when the production API is not
+implemented rather than inventing a replacement implementation.
 """
 
 from __future__ import annotations
@@ -20,33 +23,31 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from analyzer.diagnosis import diagnose
+from analyzer.metrics import (
+    calculate_acos,
+    calculate_conversion_rate,
+    calculate_ctr,
+)
+from analyzer.product_ranking import (
+    calculate_score,
+    classify_product,
+    rank_products,
+)
+from analyzer.recommendations import generate_recommendations
+from ads.acos_optimizer import evaluate_acos, suggest_acos_adjustment
 
-# ---------------------------------------------------------------------------
-# Repository paths
-# ---------------------------------------------------------------------------
 
-EVALUATION_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = EVALUATION_DIR.parent
-DATASET_PATH = EVALUATION_DIR / "datasets" / "evaluation_data.json"
-REPORTS_DIR = EVALUATION_DIR / "reports"
-REPORT_PATH = REPORTS_DIR / "evaluation_report.json"
-
-# Make the repository root importable when this script is executed directly.
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+ROOT_DIR = Path(__file__).resolve().parents[1]
+DATASET_PATH = ROOT_DIR / "evaluation" / "datasets" / "evaluation_data.json"
+REPORT_DIR = ROOT_DIR / "evaluation" / "reports"
+REPORT_PATH = REPORT_DIR / "evaluation_report.json"
 
 
 def load_dataset() -> dict[str, Any]:
     """Load the deterministic evaluation dataset."""
     if not DATASET_PATH.exists():
-        raise FileNotFoundError(
-            f"Evaluation dataset not found: {DATASET_PATH}"
-        )
+        raise FileNotFoundError(f"Dataset not found: {DATASET_PATH}")
 
     with DATASET_PATH.open("r", encoding="utf-8") as file:
         data = json.load(file)
@@ -58,419 +59,434 @@ def load_dataset() -> dict[str, Any]:
 
 
 def safe_float(value: Any) -> float:
-    """Convert a value to float while preventing invalid numeric values."""
-    try:
-        result = float(value)
-    except (TypeError, ValueError):
-        return 0.0
+    """Convert a value to float and reject non-finite numbers."""
+    result = float(value)
 
     if not math.isfinite(result):
-        return 0.0
+        raise ValueError(f"Non-finite numeric value: {value}")
 
     return result
 
 
-def calculate_binary_metrics(
-    expected: list[str],
-    predicted: list[str],
-    positive_label: str,
-) -> dict[str, float | int]:
-    """Calculate binary classification metrics."""
-    if len(expected) != len(predicted):
-        raise ValueError("Expected and predicted lists must have equal length.")
+def evaluate_metrics(dataset: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate the production metric functions."""
+    cases = dataset.get("metric_cases", [])
 
-    tp = sum(
-        1
-        for actual, prediction in zip(expected, predicted)
-        if actual == positive_label and prediction == positive_label
-    )
-    tn = sum(
-        1
-        for actual, prediction in zip(expected, predicted)
-        if actual != positive_label and prediction != positive_label
-    )
-    fp = sum(
-        1
-        for actual, prediction in zip(expected, predicted)
-        if actual != positive_label and prediction == positive_label
-    )
-    fn = sum(
-        1
-        for actual, prediction in zip(expected, predicted)
-        if actual == positive_label and prediction != positive_label
-    )
+    passed = 0
+    failed = 0
+    results = []
 
-    total = len(expected)
+    for case in cases:
+        try:
+            impressions = safe_float(case["impressions"])
+            clicks = safe_float(case["clicks"])
+            sales = safe_float(case["sales"])
+            ad_spend = safe_float(case["ad_spend"])
+            revenue = safe_float(case["revenue"])
 
-    accuracy = (tp + tn) / total if total else 0.0
-    precision = tp / (tp + fp) if tp + fp else 0.0
-    recall = tp / (tp + fn) if tp + fn else 0.0
+            ctr = calculate_ctr(clicks, impressions)
+            conversion_rate = calculate_conversion_rate(sales, clicks)
+            acos = calculate_acos(ad_spend, revenue)
 
-    if precision + recall:
-        f1 = 2 * precision * recall / (precision + recall)
-    else:
-        f1 = 0.0
+            expected = case.get("expected", {})
+
+            checks = {
+                "ctr": math.isclose(
+                    ctr,
+                    safe_float(expected["ctr"]),
+                    rel_tol=1e-9,
+                    abs_tol=1e-9,
+                ),
+                "conversion_rate": math.isclose(
+                    conversion_rate,
+                    safe_float(expected["conversion_rate"]),
+                    rel_tol=1e-9,
+                    abs_tol=1e-9,
+                ),
+                "acos": math.isclose(
+                    acos,
+                    safe_float(expected["acos"]),
+                    rel_tol=1e-9,
+                    abs_tol=1e-9,
+                ),
+            }
+
+            case_passed = all(checks.values())
+
+            if case_passed:
+                passed += 1
+            else:
+                failed += 1
+
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": case_passed,
+                    "checks": checks,
+                    "actual": {
+                        "ctr": ctr,
+                        "conversion_rate": conversion_rate,
+                        "acos": acos,
+                    },
+                    "expected": expected,
+                }
+            )
+
+        except Exception as exc:
+            failed += 1
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": False,
+                    "error": str(exc),
+                }
+            )
+
+    total = passed + failed
 
     return {
         "cases": total,
-        "true_positive": tp,
-        "true_negative": tn,
-        "false_positive": fp,
-        "false_negative": fn,
-        "accuracy": round(accuracy, 4),
-        "precision": round(precision, 4),
-        "recall": round(recall, 4),
-        "f1": round(f1, 4),
+        "passed": passed,
+        "failed": failed,
+        "accuracy": passed / total if total else 0.0,
+        "results": results,
     }
 
 
-def validate_numeric_results(results: dict[str, Any]) -> bool:
-    """Verify that numeric evaluation results contain finite values."""
-    for value in results.values():
-        if isinstance(value, (int, float)):
-            if not math.isfinite(float(value)):
-                return False
+def evaluate_diagnosis(dataset: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate the production diagnosis function."""
+    cases = dataset.get("diagnosis_cases", [])
 
-    return True
+    passed = 0
+    failed = 0
+    results = []
 
+    for case in cases:
+        try:
+            metrics = case["metrics"]
+            expected_types = set(case.get("expected_problem_types", []))
 
-def print_section(title: str) -> None:
-    """Print a formatted evaluation section."""
-    print()
-    print(title)
-    print("-" * len(title))
+            actual_problems = diagnose(metrics)
 
+            if not isinstance(actual_problems, list):
+                raise TypeError("diagnose() must return a list.")
 
-def print_metric(name: str, value: Any) -> None:
-    """Print a single evaluation metric."""
-    if isinstance(value, float):
-        print(f"{name}: {value:.4f}")
-    else:
-        print(f"{name}: {value}")
+            actual_types = {
+                problem.get("type")
+                for problem in actual_problems
+                if isinstance(problem, dict)
+            }
 
+            case_passed = actual_types == expected_types
 
-# ---------------------------------------------------------------------------
-# Component evaluators
-# ---------------------------------------------------------------------------
+            if case_passed:
+                passed += 1
+            else:
+                failed += 1
+
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": case_passed,
+                    "expected_problem_types": sorted(expected_types),
+                    "actual_problem_types": sorted(actual_types),
+                }
+            )
+
+        except Exception as exc:
+            failed += 1
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": False,
+                    "error": str(exc),
+                }
+            )
+
+    total = passed + failed
+
+    return {
+        "cases": total,
+        "passed": passed,
+        "failed": failed,
+        "accuracy": passed / total if total else 0.0,
+        "results": results,
+    }
 
 
 def evaluate_recommendations(dataset: dict[str, Any]) -> dict[str, Any]:
-    """
-    Evaluate recommendation logic.
-
-    The production recommendation function is imported dynamically so this
-    evaluator remains compatible with the existing repository structure.
-    """
+    """Evaluate the actual generate_recommendations() API."""
     cases = dataset.get("recommendation_cases", [])
 
-    if not cases:
-        return {
-            "status": "SKIPPED",
-            "reason": "No recommendation cases found.",
-        }
-
-    try:
-        from analyzer.recommendations import recommend_action
-    except ImportError as exc:
-        return {
-            "status": "ERROR",
-            "reason": f"Could not import recommendation logic: {exc}",
-        }
-
-    expected_labels: list[str] = []
-    predicted_labels: list[str] = []
-    errors: list[str] = []
+    passed = 0
+    failed = 0
+    results = []
 
     for case in cases:
-        case_id = str(case.get("id", "unknown"))
-        expected = str(case.get("expected", ""))
-
         try:
-            features = case.get("input", {})
+            problems = case["problems"]
+            expected_keywords = [
+                keyword.lower()
+                for keyword in case.get("expected_keywords", [])
+            ]
 
-            prediction = recommend_action(features)
+            recommendations = generate_recommendations(problems)
 
-            if isinstance(prediction, dict):
-                prediction = (
-                    prediction.get("action")
-                    or prediction.get("recommendation")
-                    or prediction.get("decision")
+            if not isinstance(recommendations, list):
+                raise TypeError(
+                    "generate_recommendations() must return a list."
                 )
 
-            predicted = str(prediction)
+            recommendation_text = " ".join(
+                str(item) for item in recommendations
+            ).lower()
 
-            expected_labels.append(expected)
-            predicted_labels.append(predicted)
+            checks = {
+                keyword: keyword in recommendation_text
+                for keyword in expected_keywords
+            }
 
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{case_id}: {exc}")
+            case_passed = all(checks.values())
 
-    if errors:
-        return {
-            "status": "ERROR",
-            "errors": errors,
-            "cases": len(cases),
-        }
+            if case_passed:
+                passed += 1
+            else:
+                failed += 1
 
-    labels = sorted(set(expected_labels))
-
-    # Evaluate each decision label using one-vs-rest metrics.
-    per_label: dict[str, Any] = {}
-
-    for label in labels:
-        per_label[label] = calculate_binary_metrics(
-            expected_labels,
-            predicted_labels,
-            label,
-        )
-
-    accuracy = (
-        sum(
-            actual == prediction
-            for actual, prediction in zip(
-                expected_labels,
-                predicted_labels,
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": case_passed,
+                    "checks": checks,
+                    "recommendations": recommendations,
+                }
             )
-        )
-        / len(expected_labels)
-        if expected_labels
-        else 0.0
-    )
+
+        except Exception as exc:
+            failed += 1
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": False,
+                    "error": str(exc),
+                }
+            )
+
+    total = passed + failed
 
     return {
-        "status": "PASS",
-        "cases": len(cases),
-        "accuracy": round(accuracy, 4),
-        "labels": labels,
-        "per_label": per_label,
+        "cases": total,
+        "passed": passed,
+        "failed": failed,
+        "accuracy": passed / total if total else 0.0,
+        "results": results,
     }
 
 
 def evaluate_ranking(dataset: dict[str, Any]) -> dict[str, Any]:
-    """Evaluate the existing product ranking logic."""
-    products = dataset.get("ranking_products", [])
+    """Evaluate the existing product ranking implementation."""
+    ranking_cases = dataset.get("ranking_cases", [])
 
-    if not products:
-        return {
-            "status": "SKIPPED",
-            "reason": "No ranking products found.",
-        }
+    passed = 0
+    failed = 0
+    results = []
 
-    try:
-        from analyzer.product_ranking import rank_products
-    except ImportError as exc:
-        return {
-            "status": "ERROR",
-            "reason": f"Could not import ranking logic: {exc}",
-        }
+    for case in ranking_cases:
+        try:
+            products = case["products"]
+            expected_top_ids = case.get("expected_top_ids", [])
 
-    try:
-        ranked = rank_products(products)
+            ranked = rank_products(products)
 
-        if isinstance(ranked, dict):
-            ranked = ranked.get("products", ranked.get("ranking", []))
+            actual_top_ids = [
+                product.get("id")
+                for product in ranked[: len(expected_top_ids)]
+            ]
 
-        if not isinstance(ranked, list):
-            raise TypeError("Ranking function did not return a list.")
+            case_passed = actual_top_ids == expected_top_ids
 
-        expected_order = [
-            str(item)
-            for item in dataset.get("expected_ranking", [])
-        ]
-
-        predicted_order: list[str] = []
-
-        for item in ranked:
-            if isinstance(item, dict):
-                product_id = (
-                    item.get("id")
-                    or item.get("product_id")
-                    or item.get("sku")
-                )
+            if case_passed:
+                passed += 1
             else:
-                product_id = item
+                failed += 1
 
-            if product_id is not None:
-                predicted_order.append(str(product_id))
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": case_passed,
+                    "expected_top_ids": expected_top_ids,
+                    "actual_top_ids": actual_top_ids,
+                }
+            )
 
-        return {
-            "status": "PASS",
-            "cases": len(products),
-            "expected_ranking": expected_order,
-            "predicted_ranking": predicted_order,
-        }
+        except Exception as exc:
+            failed += 1
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": False,
+                    "error": str(exc),
+                }
+            )
 
-    except Exception as exc:  # noqa: BLE001
-        return {
-            "status": "ERROR",
-            "reason": str(exc),
-        }
+    total = passed + failed
+
+    return {
+        "cases": total,
+        "passed": passed,
+        "failed": failed,
+        "accuracy": passed / total if total else 0.0,
+        "results": results,
+    }
 
 
 def evaluate_acos_optimizer(dataset: dict[str, Any]) -> dict[str, Any]:
-    """Evaluate ACOS optimizer behavior."""
+    """Evaluate the actual ACOS optimizer implementation."""
     cases = dataset.get("acos_cases", [])
 
-    if not cases:
-        return {
-            "status": "SKIPPED",
-            "reason": "No ACOS cases found.",
-        }
-
-    try:
-        from ads.acos_optimizer import optimize_acos
-    except ImportError as exc:
-        return {
-            "status": "ERROR",
-            "reason": f"Could not import ACOS optimizer: {exc}",
-        }
-
     passed = 0
     failed = 0
-    errors: list[str] = []
+    results = []
 
     for case in cases:
-        case_id = str(case.get("id", "unknown"))
-
         try:
-            result = optimize_acos(case.get("input", {}))
+            acos = safe_float(case["acos"])
+            target = safe_float(case["target"])
 
-            if isinstance(result, dict):
-                values = result.values()
+            evaluation = evaluate_acos(acos, target)
+            suggestions = suggest_acos_adjustment(acos, target)
+
+            if not isinstance(evaluation, dict):
+                raise TypeError("evaluate_acos() must return a dict.")
+
+            if not isinstance(suggestions, list):
+                raise TypeError(
+                    "suggest_acos_adjustment() must return a list."
+                )
+
+            expected_profitable = case.get("expected_profitable")
+
+            if expected_profitable is None:
+                case_passed = True
             else:
-                values = [result]
+                case_passed = (
+                    evaluation.get("profitable") == expected_profitable
+                )
 
-            numeric_values = [
-                safe_float(value)
-                for value in values
-                if isinstance(value, (int, float))
-            ]
-
-            if all(math.isfinite(value) for value in numeric_values):
+            if case_passed:
                 passed += 1
             else:
                 failed += 1
 
-        except Exception as exc:  # noqa: BLE001
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": case_passed,
+                    "evaluation": evaluation,
+                    "suggestions": suggestions,
+                }
+            )
+
+        except Exception as exc:
             failed += 1
-            errors.append(f"{case_id}: {exc}")
+            results.append(
+                {
+                    "name": case.get("name", "unnamed"),
+                    "passed": False,
+                    "error": str(exc),
+                }
+            )
+
+    total = passed + failed
 
     return {
-        "status": "PASS" if failed == 0 else "REVIEW",
-        "cases": len(cases),
+        "cases": total,
         "passed": passed,
         "failed": failed,
-        "pass_rate": round(passed / len(cases), 4),
-        "errors": errors,
+        "accuracy": passed / total if total else 0.0,
+        "results": results,
     }
 
 
-def evaluate_bidding(dataset: dict[str, Any]) -> dict[str, Any]:
-    """Evaluate bidding logic behavior."""
-    cases = dataset.get("bidding_cases", [])
+def evaluate_bidding() -> dict[str, Any]:
+    """
+    Report bidding evaluation as skipped when the production API does not
+    expose an implemented bidding function.
 
-    if not cases:
-        return {
-            "status": "SKIPPED",
-            "reason": "No bidding cases found.",
-        }
-
-    try:
-        from ads.bidding_logic import calculate_bid
-    except ImportError as exc:
-        return {
-            "status": "ERROR",
-            "reason": f"Could not import bidding logic: {exc}",
-        }
-
-    passed = 0
-    failed = 0
-    errors: list[str] = []
-
-    for case in cases:
-        case_id = str(case.get("id", "unknown"))
-
-        try:
-            result = calculate_bid(case.get("input", {}))
-
-            if isinstance(result, dict):
-                values = result.values()
-            else:
-                values = [result]
-
-            numeric_values = [
-                safe_float(value)
-                for value in values
-                if isinstance(value, (int, float))
-            ]
-
-            if all(math.isfinite(value) for value in numeric_values):
-                passed += 1
-            else:
-                failed += 1
-
-        except Exception as exc:  # noqa: BLE001
-            failed += 1
-            errors.append(f"{case_id}: {exc}")
-
+    We deliberately do not invent a calculate_bid implementation.
+    """
     return {
-        "status": "PASS" if failed == 0 else "REVIEW",
-        "cases": len(cases),
-        "passed": passed,
-        "failed": failed,
-        "pass_rate": round(passed / len(cases), 4),
-        "errors": errors,
+        "status": "SKIPPED",
+        "reason": (
+            "No implemented calculate_bid/get_min_bid/get_max_bid "
+            "production API was found in ads.bidding_logic."
+        ),
+        "cases": 0,
+        "passed": 0,
+        "failed": 0,
     }
 
 
-# ---------------------------------------------------------------------------
-# Overall evaluation
-# ---------------------------------------------------------------------------
+def calculate_overall_score(
+    evaluations: dict[str, dict[str, Any]],
+) -> float:
+    """Calculate the mean score of executed evaluation components."""
+    scores = []
 
+    for evaluation in evaluations.values():
+        if evaluation.get("status") == "SKIPPED":
+            continue
 
-def calculate_overall_score(results: dict[str, Any]) -> float:
-    """Calculate a transparent overall evaluation score."""
-    component_scores: list[float] = []
+        if "accuracy" in evaluation:
+            scores.append(float(evaluation["accuracy"]))
 
-    recommendation = results.get("recommendations", {})
-    if recommendation.get("status") == "PASS":
-        component_scores.append(
-            safe_float(recommendation.get("accuracy"))
-        )
-
-    acos = results.get("acos_optimizer", {})
-    if acos.get("status") in {"PASS", "REVIEW"}:
-        component_scores.append(
-            safe_float(acos.get("pass_rate"))
-        )
-
-    bidding = results.get("bidding", {})
-    if bidding.get("status") in {"PASS", "REVIEW"}:
-        component_scores.append(
-            safe_float(bidding.get("pass_rate"))
-        )
-
-    if not component_scores:
+    if not scores:
         return 0.0
 
-    return round(
-        sum(component_scores) / len(component_scores),
-        4,
+    return sum(scores) / len(scores)
+
+
+def build_report(dataset: dict[str, Any]) -> dict[str, Any]:
+    """Run all available evaluations and construct the report."""
+    evaluations = {
+        "metrics": evaluate_metrics(dataset),
+        "diagnosis": evaluate_diagnosis(dataset),
+        "recommendations": evaluate_recommendations(dataset),
+        "ranking": evaluate_ranking(dataset),
+        "acos_optimizer": evaluate_acos_optimizer(dataset),
+        "bidding": evaluate_bidding(),
+    }
+
+    overall_score = calculate_overall_score(evaluations)
+
+    executed_failures = sum(
+        evaluation.get("failed", 0)
+        for evaluation in evaluations.values()
+        if evaluation.get("status") != "SKIPPED"
     )
 
+    status = "PASS" if executed_failures == 0 else "REVIEW"
 
-def write_report(results: dict[str, Any]) -> None:
-    """Write the evaluation results to JSON."""
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-    report = {
+    return {
         "project": "The-AI-s-Mercado-Libre-in-develop",
+        "evaluation_type": "offline_deterministic_evaluation",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "evaluation_type": "offline_deterministic",
-        "results": results,
-        "overall_score": results["overall_score"],
-        "status": results["status"],
+        "status": status,
+        "overall_score": round(overall_score, 4),
+        "evaluations": evaluations,
+        "limitations": [
+            "Synthetic deterministic data is used.",
+            "The evaluation measures deterministic decision and optimization logic.",
+            "No Mercado Libre API credentials or network access are required.",
+            "Bidding is skipped because the current production module does not "
+            "expose an implemented bidding API.",
+        ],
     }
+
+
+def write_report(report: dict[str, Any]) -> None:
+    """Write the evaluation report as formatted JSON."""
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
     with REPORT_PATH.open("w", encoding="utf-8") as file:
         json.dump(
@@ -481,100 +497,49 @@ def write_report(results: dict[str, Any]) -> None:
         )
 
 
-def print_summary(results: dict[str, Any]) -> None:
-    """Print a human-readable evaluation summary."""
-    print()
-    print("=" * 50)
+def print_summary(report: dict[str, Any]) -> None:
+    """Print a concise human-readable evaluation summary."""
+    print("=" * 58)
     print("Mercado Libre AI Evaluation")
-    print("=" * 50)
+    print("=" * 58)
 
-    recommendation = results["recommendations"]
+    for name, evaluation in report["evaluations"].items():
+        print(f"\n{name.replace('_', ' ').title()}")
+        print("-" * 30)
 
-    print_section("Recommendation Evaluation")
+        if evaluation.get("status") == "SKIPPED":
+            print("Status: SKIPPED")
+            print(f"Reason: {evaluation['reason']}")
+            continue
 
-    if recommendation.get("status") == "PASS":
-        print_metric("Cases", recommendation.get("cases", 0))
-        print_metric("Accuracy", recommendation.get("accuracy", 0.0))
-    else:
-        print(f"Status: {recommendation.get('status')}")
+        print(f"Cases:  {evaluation.get('cases', 0)}")
+        print(f"Passed: {evaluation.get('passed', 0)}")
+        print(f"Failed: {evaluation.get('failed', 0)}")
 
-    ranking = results["ranking"]
+        if "accuracy" in evaluation:
+            print(f"Score:  {evaluation['accuracy']:.2%}")
 
-    print_section("Ranking Evaluation")
-    print_metric("Cases", ranking.get("cases", 0))
-    print(f"Status: {ranking.get('status')}")
-
-    acos = results["acos_optimizer"]
-
-    print_section("ACOS Optimizer")
-    print_metric("Cases evaluated", acos.get("cases", 0))
-    print_metric("Passed", acos.get("passed", 0))
-    print_metric("Failed", acos.get("failed", 0))
-    print_metric("Pass rate", acos.get("pass_rate", 0.0))
-
-    bidding = results["bidding"]
-
-    print_section("Bidding Logic")
-    print_metric("Cases evaluated", bidding.get("cases", 0))
-    print_metric("Passed", bidding.get("passed", 0))
-    print_metric("Failed", bidding.get("failed", 0))
-    print_metric("Pass rate", bidding.get("pass_rate", 0.0))
-
-    print_section("Overall Evaluation")
-
-    score = results["overall_score"]
-
-    print_metric("Score", score)
-    print(f"Status: {results['status']}")
-
-    print()
+    print("\n" + "=" * 58)
+    print("Overall Evaluation")
+    print("=" * 58)
+    print(f"Score:  {report['overall_score']:.2%}")
+    print(f"Status: {report['status']}")
     print(f"Report: {REPORT_PATH}")
 
 
-def run_evaluation() -> dict[str, Any]:
-    """Run the complete evaluation suite."""
-    dataset = load_dataset()
-
-    results: dict[str, Any] = {
-        "recommendations": evaluate_recommendations(dataset),
-        "ranking": evaluate_ranking(dataset),
-        "acos_optimizer": evaluate_acos_optimizer(dataset),
-        "bidding": evaluate_bidding(dataset),
-    }
-
-    results["overall_score"] = calculate_overall_score(results)
-
-    component_statuses = [
-        result.get("status")
-        for result in results.values()
-        if isinstance(result, dict)
-    ]
-
-    has_errors = "ERROR" in component_statuses
-
-    results["status"] = "REVIEW" if has_errors else "PASS"
-
-    return results
-
-
 def main() -> int:
-    """CLI entry point."""
+    """Run the complete offline evaluation."""
     try:
-        results = run_evaluation()
+        dataset = load_dataset()
+        report = build_report(dataset)
+        write_report(report)
+        print_summary(report)
 
-        write_report(results)
-        print_summary(results)
+        return 0 if report["status"] == "PASS" else 1
 
-        return 0
-
-    except Exception as exc:  # noqa: BLE001
-        print()
-        print("=" * 50)
-        print("Evaluation failed")
-        print("=" * 50)
-        print(f"Error: {exc}")
-
-        return 1
+    except Exception as exc:
+        print(f"Evaluation failed: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
