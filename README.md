@@ -1,5 +1,6 @@
 # 🚀 AI Mercado Libre Optimizer
 ![](Logo.png)
+![AI Mercado Libre Optimizer Dashboard](docs/images/dashboard.png)
 An intelligent system designed to **analyze product performance, optimize advertising campaigns, and maximize sales on Mercado Libre** using data-driven decision making.
 
 ---
