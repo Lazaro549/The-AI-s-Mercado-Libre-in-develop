@@ -35,7 +35,7 @@ def calculate_ctr(clicks: int, impressions: int) -> float:
     
     if impressions == 0:
         logger.warning("impressions is 0, returning CTR of 0")
-        return 0.0
+        return None
     
     ctr = clicks / impressions
     logger.debug(f"CTR calculated: {ctr:.4f} (clicks={clicks}, impressions={impressions})")
